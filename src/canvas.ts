@@ -2,15 +2,6 @@ import * as THREE from "three"
 import { Dimensions, Size } from "./types/types"
 import { OrbitControls } from "three/addons/controls/OrbitControls.js"
 import GUI from "lil-gui"
-import Scroll from "./scroll"
-import gsap from "gsap"
-import { $ } from "./utils/dom"
-import Magazine from "./magazine"
-import normalizeWheel from "normalize-wheel"
-
-interface Props {
-  scroll: Scroll
-}
 
 export default class Canvas {
   element: HTMLCanvasElement
@@ -25,16 +16,9 @@ export default class Canvas {
   mouse: THREE.Vector2
   orbitControls: OrbitControls
   debug: GUI
-  scroll: Scroll
-  mediaInfoBlock: HTMLDivElement
-  magazine: Magazine
 
-  constructor({ scroll }: Props) {
-    this.scroll = scroll
+  constructor() {
     this.element = document.getElementById("webgl") as HTMLCanvasElement
-    this.mediaInfoBlock = document.getElementById(
-      "media-block"
-    ) as HTMLDivElement
     this.time = 0
     this.createClock()
     this.createScene()
@@ -42,11 +26,8 @@ export default class Canvas {
     this.createRenderer()
     this.setSizes()
     this.createRayCaster()
-    //this.createOrbitControls()
     this.addEventListeners()
     this.createDebug()
-    this.createMagazine()
-    //this.createHelpers()
 
     this.debug.hide()
 
@@ -65,12 +46,7 @@ export default class Canvas {
       100
     )
     this.scene.add(this.camera)
-    //this.camera.position.z = 2
-    //this.camera.position.z = 6
-    this.camera.position.z = 6
-    //this.camera.position.y = 3
-    //this.camera.position.x = 2
-    //this.camera.position.y = 10
+    this.camera.position.z = 10
   }
 
   createHelpers() {
@@ -83,14 +59,6 @@ export default class Canvas {
       this.camera,
       this.renderer.domElement
     )
-  }
-
-  createMagazine() {
-    this.magazine = new Magazine({
-      scene: this.scene,
-      debug: this.debug,
-      sizes: this.sizes,
-    })
   }
 
   createRenderer() {
@@ -164,14 +132,11 @@ export default class Canvas {
 
     this.renderer.setPixelRatio(this.dimensions.pixelRatio)
     this.renderer.setSize(this.dimensions.width, this.dimensions.height)
-
-    this.magazine?.onResize(this.sizes)
   }
 
   render() {
     this.time = this.clock.getElapsedTime()
 
     this.renderer.render(this.scene, this.camera)
-    this.magazine?.render()
   }
 }
