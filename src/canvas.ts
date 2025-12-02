@@ -14,10 +14,11 @@ export default class Canvas {
   time: number
   clock: THREE.Clock
   raycaster: THREE.Raycaster
-  mouse: THREE.Vector2
+  mouse: THREE.Vector2 = new THREE.Vector2()
   orbitControls: OrbitControls
   debug: GUI
   planes: Planes
+  material: THREE.ShaderMaterial
 
   constructor() {
     this.element = document.getElementById("webgl") as HTMLCanvasElement
@@ -30,8 +31,6 @@ export default class Canvas {
     this.addEventListeners()
     this.createDebug()
     this.createPlanes()
-    this.createHelpers()
-    this.createOrbitControls()
 
     this.debug.hide()
 
@@ -67,6 +66,8 @@ export default class Canvas {
 
   createPlanes() {
     this.planes = new Planes({ scene: this.scene, sizes: this.sizes })
+    // Bind drag interactions to the renderer's canvas
+    this.planes.bindDrag(this.renderer.domElement)
   }
 
   createRenderer() {
