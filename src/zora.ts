@@ -1,13 +1,13 @@
-import { getCoinsTopVolume24h, setApiKey, type GetExploreResponse } from "@zoralabs/coins-sdk"
+import { getCoinsTopVolume24h, setApiKey, type ExploreResponse } from "@zoralabs/coins-sdk"
 
 // Get API key from environment (optional but recommended)
-const ZORA_API_KEY = import.meta.env.VITE_ZORA_API_KEY
+const ZORA_API_KEY = (import.meta as any).env?.VITE_ZORA_API_KEY
 if (ZORA_API_KEY) {
   setApiKey(ZORA_API_KEY)
 }
 
 // Extract the coin type from the explore response
-type CoinNode = NonNullable<GetExploreResponse["exploreList"]>["edges"][number]["node"]
+type CoinNode = NonNullable<NonNullable<ExploreResponse["data"]>["exploreList"]>["edges"][number]["node"]
 
 export async function get30CoinImages() {
   try {
