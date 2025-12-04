@@ -27,7 +27,7 @@ export default class Planes {
   geometry: THREE.PlaneGeometry
   material: THREE.ShaderMaterial
   mesh: THREE.InstancedMesh
-  meshCount: number = 100
+  meshCount: number = 400
   sizes: Size
   drag: {
     xCurrent: number
