@@ -3,7 +3,7 @@ import vertexShader from "./shaders/vertex.glsl"
 import fragmentShader from "./shaders/fragment.glsl"
 import { Size } from "./types/types"
 import normalizeWheel from "normalize-wheel"
-import { get30NewReleaseCovers } from "./spotify"
+import { get30CoinImages } from "./zora"
 
 interface Props {
   scene: THREE.Scene
@@ -27,7 +27,7 @@ export default class Planes {
   geometry: THREE.PlaneGeometry
   material: THREE.ShaderMaterial
   mesh: THREE.InstancedMesh
-  meshCount: number = 400
+  meshCount: number = 100
   sizes: Size
   drag: {
     xCurrent: number
@@ -87,40 +87,80 @@ export default class Planes {
     window.addEventListener("wheel", this.onWheel.bind(this))
   }
 
+  // Create a placeholder image for failed loads
+  createPlaceholderImage(): HTMLImageElement {
+    const canvas = document.createElement("canvas")
+    canvas.width = 400
+    canvas.height = 400
+    const ctx = canvas.getContext("2d")!
+
+    // Draw a simple gradient placeholder
+    const gradient = ctx.createLinearGradient(0, 0, 400, 400)
+    gradient.addColorStop(0, "#1a1a1a")
+    gradient.addColorStop(1, "#333333")
+    ctx.fillStyle = gradient
+    ctx.fillRect(0, 0, 400, 400)
+
+    // Create image from canvas
+    const img = new Image()
+    img.src = canvas.toDataURL()
+    return img
+  }
+
   createGeometry() {
-    this.geometry = new THREE.PlaneGeometry(1, 1.69, 1, 1)
-    this.geometry.scale(2, 2, 2)
+    this.geometry = new THREE.PlaneGeometry(1, 1, 1, 1)
+    this.geometry.scale(4, 4, 4)
   }
 
   async fetchCovers() {
-    //const urls: string[] = await get30NewReleaseCovers()
-    const urls: string[] = new Array(30)
-      .fill(0)
-      .map((_, i) => `/covers/image_${i}.jpg`)
+    const urls: string[] = await get30CoinImages()
     await this.loadTextureAtlas(urls)
     this.createBlurryAtlas()
     this.fillMeshData()
   }
 
   async loadTextureAtlas(urls: string[]) {
-    // Load all images with CORS-safe approach to avoid tainted canvas
+    console.log("Loading images:", urls.slice(0, 3)) // Log first 3 URLs for debugging
+
+    // Load all images - try without CORS first, then with crossOrigin
     const imagePromises = urls.map(async (path) => {
-      try {
-        const res = await fetch(path, { mode: "cors" })
-        if (!res.ok) throw new Error(`Failed to fetch image: ${path}`)
-        const blob = await res.blob()
-        const bitmap = await createImageBitmap(blob)
-        return bitmap as CanvasImageSource
-      } catch (err) {
-        // Fallback to HTMLImageElement with crossOrigin
-        return await new Promise<CanvasImageSource>((resolve, reject) => {
-          const img = new Image()
-          img.crossOrigin = "anonymous"
-          img.onload = () => resolve(img)
-          img.onerror = (e) => reject(e)
+      // First attempt: try with crossOrigin
+      return await new Promise<CanvasImageSource>((resolve) => {
+        const img = new Image()
+
+        const tryLoad = (useCors: boolean) => {
+          if (useCors) {
+            img.crossOrigin = "anonymous"
+          }
+
+          img.onload = () => {
+            console.log(`✓ Loaded image: ${path.substring(0, 50)}...`)
+            resolve(img)
+          }
+
+          img.onerror = () => {
+            if (useCors) {
+              // If CORS failed, try without CORS
+              console.log(`⚠ CORS failed for ${path.substring(0, 50)}..., trying without CORS`)
+              const imgNoCors = new Image()
+              imgNoCors.onload = () => resolve(imgNoCors)
+              imgNoCors.onerror = () => {
+                // If both failed, create a placeholder
+                console.log(`✗ Failed to load: ${path.substring(0, 50)}...`)
+                resolve(this.createPlaceholderImage())
+              }
+              imgNoCors.src = path
+            } else {
+              // Create placeholder if no-CORS also failed
+              resolve(this.createPlaceholderImage())
+            }
+          }
+
           img.src = path
-        })
-      }
+        }
+
+        tryLoad(true) // Start with CORS enabled
+      })
     })
 
     const images = await Promise.all(imagePromises)
@@ -210,15 +250,6 @@ export default class Planes {
             this.shaderParameters.maxY
           ),
         },
-        uWrapperTexture: {
-          value: new THREE.TextureLoader().load("/spt-3.png", (tex) => {
-            //make the texture as sharp as possible
-            tex.minFilter = THREE.NearestFilter
-            tex.magFilter = THREE.NearestFilter
-            tex.generateMipmaps = false
-            tex.needsUpdate = true
-          }),
-        },
         uAtlas: new THREE.Uniform(this.atlasTexture),
         uBlurryAtlas: new THREE.Uniform(this.blurryAtlasTexture),
         uScrollY: { value: 0 },
@@ -242,6 +273,7 @@ export default class Planes {
     const initialPosition = new Float32Array(this.meshCount * 3)
     const meshSpeed = new Float32Array(this.meshCount)
     const aTextureCoords = new Float32Array(this.meshCount * 4)
+    const aAspectRatio = new Float32Array(this.meshCount)
 
     for (let i = 0; i < this.meshCount; i++) {
       initialPosition[i * 3 + 0] =
@@ -261,6 +293,8 @@ export default class Planes {
       aTextureCoords[i * 4 + 1] = this.imageInfos[imageIndex].uvs.xEnd
       aTextureCoords[i * 4 + 2] = this.imageInfos[imageIndex].uvs.yStart
       aTextureCoords[i * 4 + 3] = this.imageInfos[imageIndex].uvs.yEnd
+
+      aAspectRatio[i] = this.imageInfos[imageIndex].aspectRatio
     }
 
     this.geometry.setAttribute(
@@ -275,6 +309,10 @@ export default class Planes {
     this.mesh.geometry.setAttribute(
       "aTextureCoords",
       new THREE.InstancedBufferAttribute(aTextureCoords, 4)
+    )
+    this.mesh.geometry.setAttribute(
+      "aAspectRatio",
+      new THREE.InstancedBufferAttribute(aAspectRatio, 1)
     )
   }
 
